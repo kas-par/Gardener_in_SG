@@ -181,8 +181,7 @@ shinyServer(function(input, output, session) {
     scraping_weather = reactive({
         
         regenmenge = get_weather_data()
-        regenmenge$value = as.numeric(regenmenge$value)
-        
+
     })
     
     #Output of the Weather data scraped above

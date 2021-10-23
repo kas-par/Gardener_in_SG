@@ -28,8 +28,8 @@ con <- serialConnection(name = "get_temps",
 open(con)
 
 # Connect to the database
-sqlitePath = "rain_database.db"
-
+sqlitePath <- "rain_database.db"
+Table <- "Rain_Data"
 
 
 already_watered <<- FALSE
@@ -45,74 +45,40 @@ db_timeout = 300000
 
 #-------Shiny Function--------
 
-# Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
     bool_settings <<- FALSE
   
-    #Timer für Unterbrüche in Ausführungszyklus
-    autoInvalidateFeuchtigkeitText <- reactiveTimer(10000) #alle 5 Sekunden Sensordaten abrufen
-    autoInvalidateHumText <- reactiveTimer(10000) #alle 5 Sekunden Sensordaten abrufen
-    autoInvalidateFeuchtigkeitPlot <- reactiveTimer(60000)
-    autoInvalidateFeuchtigkeitWeather <- reactiveTimer(43200000) #zweimal am Tag das Wetter online abrufen
-    autoInvalidateWateringStart <- reactiveTimer(600000)
-    autoInvalidateWateringBoolDaily <- reactiveTimer(86400000)
-    autoInvalidateWateringBoolTwoDaily <- reactiveTimer(172800000)
+    ##Timer für Unterbrüche in Ausführungszyklus ====
+    autoInvalidateUpdateDB_Text <- reactiveTimer(10000)
+    autoInvalidateUpdateDB_Plot <- reactiveTimer(30000)
     autoInvalidateWater <- reactiveTimer(2000)
     autoInvalidateCheckSettings <- reactiveTimer(1000)
-    #Erstellen des Feuchtigkeitplots ANFANG
+    
+    
+    
+    ## Erstellen des Feuchtigkeitplots ANFANG ====
+    
     output$FeuchtigkeitsPlot <- renderPlot({
+      
         #Timer um die Regelmässigkeit des Plots zu steuern
         autoInvalidateFeuchtigkeitPlot()
       
       if (input$variable == "Anfang") {
-        #Auslesen der letzten 200 Werte aus der Rain_Data Tabelle der Datenbank für Plot
-        db <- dbConnect(RSQLite::SQLite(), sqlitePath, synchronous) #establish connection
-        sqliteSetBusyHandler(db, db_timeout)
-        feuchtigkeit = dbGetQuery(db, "SELECT bodenF, zeit FROM Rain_Data ORDER BY n DESC LIMIT 200000")
-        #print(feuchtigkeit)
-        dbDisconnect(db)
-        n2 = seq(from = 1, to = nrow(feuchtigkeit), by = 1000 ) #to ensure that only part of the data is ploted, otherwise raspberry takes so long
-        #to render the plot that app is constantly frozen
-        feuchtigkeit = feuchtigkeit[n2,]
-        mydates = structure(feuchtigkeit$zeit,class=c('POSIXt','POSIXct'))
-        upper_bound = quantile(feuchtigkeit$bodenF, 0.95, na.rm =  T)
-        index <- feuchtigkeit$bodenF >= upper_bound
-        feuchtigkeit$bodenF[index] <- upper_bound
-        #Plot erstellen
-         ggplot(feuchtigkeit, aes(x = mydates, y = bodenF))+
-                geom_point()+
-                geom_smooth(na.rm = TRUE, se = FALSE) +
-                xlab("Zeit")+
-                ylab("Feuchtigkeitswert in %")
-        }#IF end
-      else {
         
-        #Auslesen der letzten 200 Werte aus der Rain_Data Tabelle der Datenbank für Plot
-        db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-        sqliteSetBusyHandler(db, db_timeout)
-        feuchtigkeit = dbGetQuery(db, "SELECT bodenF_Ende, n FROM Rain_Data ORDER BY n DESC LIMIT 200000")
-        dbDisconnect(db)
-        n2 = seq(from = 1, to = nrow(feuchtigkeit), by = 1000 ) #to ensure that only part of the data is ploted, otherwise raspberry takes so long
-        #to render the plot that app is constantly frozen
-        feuchtigkeit = feuchtigkeit[n2,]
-        mydates = structure(feuchtigkeit$zeit,class=c('POSIXt','POSIXct'))
-        upper_bound = quantile(feuchtigkeit$bodenF_Ende, 0.95, na.rm =  T)
-        index <- feuchtigkeit$bodenF_Ende >= upper_bound
-        feuchtigkeit$bodenF_Ende[index] <- upper_bound
+        feuchtigkeit_plot(db, sqlitePath = sqlitePath, Table = Table, var = "bodenF")
         
-        #Plot erstellen
-        ggplot(feuchtigkeit, aes(x = n, y = bodenF_Ende))+
-          geom_point()+
-          geom_smooth(na.rm = TRUE) +
-          xlab("Messungsnummer")+
-          ylab("Feuchtigkeitswert in %")
+      } else {
+        
+        feuchtigkeit_plot(db, sqlitePath = sqlitePath, Table = Table, var = "bodenF_Ende")
         
       }
       
-    }) #end Plot
+    }) #end Plot Feuchtigkeit
+    
     
     #Textoutput Feuchtigkeit
     output$aktuelleFeuchtigkeitText = renderText({
+      
         autoInvalidateFeuchtigkeitText()
         db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
         aktuell = dbGetQuery(db, "SELECT bodenF, n FROM Rain_Data ORDER BY n DESC LIMIT 1")

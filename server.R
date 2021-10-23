@@ -5,52 +5,13 @@
 # Find out more about building applications with Shiny here:
 #
 #    http://shiny.rstudio.com/
-#
-#----------Setup--------
-library(shiny)
-library(serial)
-library(tidyverse)
-library(rvest)
-library(RSQLite)
-library(shinyTime)
 
-options(shiny.sanitize.errors = FALSE)
-
-source("R/feuchtigkeit_plots.R")
-source("R/get_weather_data.R")
-source("R/text_update.R")
-
-# port = system("ls /dev/ttyUSB*", intern = TRUE)
-# port = substring(port, 6)
-# 
-# #Initialise the Connection to Arduino
-# con <- serialConnection(name = "get_temps",
-#                         port = port, #ttyUSB1 ; cu.usbserial-14130 cu.usbmodem1432201
-#                         mode = "9600,n,8,1",
-#                         buffering = "none",
-#                         newline = 1)
-# open(con)
-
-
-# Connect to the database
-sqlitePath <- "rain_database.db"
-Table <- "Rain_Data"
-
-
-already_watered <<- FALSE
-heizung_bool = FALSE
-print(paste("Heizungsbool: ", heizung_bool))
-
-initial_settings_update_hours = FALSE
-initial_settings_update_length <<- FALSE
-initial_settings_update_freq = FALSE
-
-db_timeout = 300000
 
 
 #-------Shiny Function--------
 
 shinyServer(function(input, output, session) {
+  
     bool_settings <<- FALSE
   
     ##Timer für Unterbrüche in Ausführungszyklus ====
@@ -167,7 +128,7 @@ shinyServer(function(input, output, session) {
       time_to_water = input$input_manuell_length_watering
       print("Kommunkation gestartet")
       time_to_water = as.numeric(time_to_water)
-      write.serialConnection(con, time_to_water)
+      #        ############write.serialConnection(con, time_to_water)
 
     })
     
@@ -186,7 +147,7 @@ shinyServer(function(input, output, session) {
       #-----Kommunikation zu Arduino------
       
       #Einstellungen der Dauer der Bewässerung auslesen + String für Kommunikation erstellen
-      write.serialConnection(con, "off")
+      #        ############write.serialConnection(con, "off")
       
       
     })
@@ -263,8 +224,6 @@ shinyServer(function(input, output, session) {
       
     })
     
-
- 
     
     #-------Timer Management for Watering ---------
     
@@ -282,10 +241,10 @@ shinyServer(function(input, output, session) {
         
         #Communication to Arduino
         time_to_water = input$input_manuell_length_watering
-        write.serialConnection(con, "on1")
+        ############ write.serialConnection(con, "on1")
         time_to_water = time_to_water*60 #calculate the time in seconds for the sys.sleep command
         #Sys.sleep(time_to_water)
-        write.serialConnection(con, "off1")
+        ############ write.serialConnection(con, "off1")
         
       } #end IF current hour to water
       
@@ -393,6 +352,13 @@ shinyServer(function(input, output, session) {
     
     
     observe({
+      
+      # Idee: am Anfang wird der reactive Timer gleich aufgerufen um die Settings auszulesen; 
+      #       Danach wird die Zeit für eine Wiederholung so hoch eingestellt, dass der Timer
+      #       während der Session nicht mehr aktiviert wird.
+      #       Vorher ist es meines Wissens nicht möglich, da kein Session Objekt verfügbar ist um die 
+      #       UI-Elemente anzupassen.
+      
       autoInvalidateCheckSettings()
       autoInvalidateCheckSettings <<- reactiveTimer(10000000)
       print("settings")

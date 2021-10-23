@@ -7,10 +7,7 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
-library(shinythemes)
-library(shinyalert)
-library(RSQLite)
+
 # Define UI for application that draws a histogram
 shinyUI(
     

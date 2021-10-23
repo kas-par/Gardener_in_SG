@@ -13,4 +13,5 @@ get_weather_data <- function() {
   regenmenge = as_tibble(regenmenge[1:6])
   regenmenge$value = as.numeric(regenmenge$value)
   return(regenmenge$value)
+  
 }

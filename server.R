@@ -21,7 +21,7 @@ port = substring(port, 6)
 
 #Initialise the Connection to Arduino
 con <- serialConnection(name = "get_temps",
-                        port = "cu.usbserial-14130", #ttyUSB1 ; cu.usbserial-14130 cu.usbmodem1432201
+                        port = port, #ttyUSB1 ; cu.usbserial-14130 cu.usbmodem1432201
                         mode = "9600,n,8,1",
                         buffering = "none",
                         newline = 1)
@@ -59,7 +59,6 @@ shinyServer(function(input, output, session) {
     autoInvalidateWateringBoolTwoDaily <- reactiveTimer(172800000)
     autoInvalidateWater <- reactiveTimer(2000)
     autoInvalidateCheckSettings <- reactiveTimer(1000)
-    
     #Erstellen des Feuchtigkeitplots ANFANG
     output$FeuchtigkeitsPlot <- renderPlot({
         #Timer um die Regelmässigkeit des Plots zu steuern
@@ -179,9 +178,9 @@ shinyServer(function(input, output, session) {
     
     #-----Scrape the Weather Data from srf Meteo ------
     scraping_weather = reactive({
-        
-        regenmenge = get_weather_data()
-
+      
+      regenmenge = get_weather_data()
+      
     })
     
     #Output of the Weather data scraped above

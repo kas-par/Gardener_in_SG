@@ -16,16 +16,21 @@ library(shinyTime)
 
 options(shiny.sanitize.errors = FALSE)
 
-port = system("ls /dev/ttyUSB*", intern = TRUE)
-port = substring(port, 6)
+source("R/feuchtigkeit_plots.R")
+source("R/get_weather_data.R")
+source("R/text_update.R")
 
-#Initialise the Connection to Arduino
-con <- serialConnection(name = "get_temps",
-                        port = port, #ttyUSB1 ; cu.usbserial-14130 cu.usbmodem1432201
-                        mode = "9600,n,8,1",
-                        buffering = "none",
-                        newline = 1)
-open(con)
+# port = system("ls /dev/ttyUSB*", intern = TRUE)
+# port = substring(port, 6)
+# 
+# #Initialise the Connection to Arduino
+# con <- serialConnection(name = "get_temps",
+#                         port = port, #ttyUSB1 ; cu.usbserial-14130 cu.usbmodem1432201
+#                         mode = "9600,n,8,1",
+#                         buffering = "none",
+#                         newline = 1)
+# open(con)
+
 
 # Connect to the database
 sqlitePath <- "rain_database.db"
@@ -61,7 +66,7 @@ shinyServer(function(input, output, session) {
     output$FeuchtigkeitsPlot <- renderPlot({
       
         #Timer um die Regelmässigkeit des Plots zu steuern
-        autoInvalidateFeuchtigkeitPlot()
+      autoInvalidateUpdateDB_Plot()
       
       if (input$variable == "Anfang") {
         
@@ -76,70 +81,48 @@ shinyServer(function(input, output, session) {
     }) #end Plot Feuchtigkeit
     
     
-    #Textoutput Feuchtigkeit
-    output$aktuelleFeuchtigkeitText = renderText({
+    # Text Outputs ----
+    
+    observe ({
       
-        autoInvalidateFeuchtigkeitText()
-        db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-        aktuell = dbGetQuery(db, "SELECT bodenF, n FROM Rain_Data ORDER BY n DESC LIMIT 1")
-        dbDisconnect(db)
-        #print(aktuell)
-        aktuell_bodenF = aktuell$bodenF[nrow(aktuell)]
+      autoInvalidateUpdateDB_Text()
+      
+      t_update_text <- get_text_update(db, sqlitePath = sqlitePath, Table= Table)
+      
+      #Textoutput Feuchtigkeit
+      output$aktuelleFeuchtigkeitText = renderText({
+        aktuell_bodenF <- t_update_text$bodenF
+      })
+      
+      #Textoutput Feuchtigkeit - ENDE
+      output$aktuelleFeuchtigkeitText_Ende = renderText({
+        aktuell_bodenF <- t_update_text$bodenF_Ende
+      })
+      
+      #Textoutput Feuchtigkeit - Luft
+      output$aktuelleHumText = renderText({
+        aktuell_luftF <- t_update_text$luftF
+      })
+      
+      #Textoutput Lufttemperatur
+      output$aktuelleLuftText = renderText({
+        aktuell_luftT <- t_update_text$luftT
+      })
+      
+      #Textoutput Wasserstand
+      output$aktueller_wasserstand = renderText({
+        aktuell_wasserstand <- t_update_text$wasserstand
         
-        paste("Aktuelle Bodenfeuchtigkeit Anfang: ", aktuell_bodenF)
-    })
-    
-    
-    #Textoutput Feuchtigkeit - ENDE
-    output$aktuelleFeuchtigkeitText_Ende = renderText({
-      autoInvalidateFeuchtigkeitText()
-      db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-      aktuell = dbGetQuery(db, "SELECT bodenF_Ende, n FROM Rain_Data ORDER BY n DESC LIMIT 1")
-      dbDisconnect(db)
-      aktuell_bodenF = aktuell$bodenF_Ende[nrow(aktuell)]
+        if (aktuell_wasserstand == 0) {
+          wasser = "Vorhanden"
+        } else {
+          wasser = "Kein Wasser vorhanden!"
+        }
+        
+      })
       
-      paste("Aktuelle Bodenfeuchtigkeit Ende: ", aktuell_bodenF)
     })
-    
-    
-    
-    #Textoutput Feuchtigkeit - Luft
-    output$aktuelleHumText = renderText({
-      autoInvalidateFeuchtigkeitText()
-      db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-      aktuell = dbGetQuery(db, "SELECT luftF, n FROM Rain_Data ORDER BY n DESC LIMIT 1")
-      dbDisconnect(db)
-      aktuell_luftF = aktuell$luftF[nrow(aktuell)]
-      
-      paste("Aktuelle Luftfeuchtigkeit: ", aktuell_luftF)
-    })
-  
-    #Textoutput Lufttemperatur
-    output$aktuelleLuftText = renderText({
-      autoInvalidateFeuchtigkeitText()
-      db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-      aktuell = dbGetQuery(db, "SELECT luftT, n FROM Rain_Data ORDER BY n DESC LIMIT 1")
-      dbDisconnect(db)
-      aktuell_luftT = aktuell$luftT[nrow(aktuell)]
-      
-      paste("Aktuelle Temperatur: ", aktuell_luftT)
-    })
-    
-    
-    #Textoutput Wasserstand
-    output$aktueller_wasserstand = renderText({
-      autoInvalidateWater()
-      db <- dbConnect(RSQLite::SQLite(), sqlitePath) #establish connection
-      aktuell = dbGetQuery(db, "SELECT wasserstand, n FROM Rain_Data ORDER BY n DESC LIMIT 1")
-      dbDisconnect(db)
-      aktuell_wasserstand = aktuell$wasserstand[nrow(aktuell)]
-      if (aktuell_wasserstand == 0) {
-        wasser = "Vorhanden"
-      } else {
-        wasser = "Kein Wasser vorhanden!"
-      }
-      paste("Aktueller Wasserstand: ", wasser)
-    })
+
     
     
     #-----Scrape the Weather Data from srf Meteo ------
@@ -182,19 +165,10 @@ shinyServer(function(input, output, session) {
       
       #Einstellungen der Dauer der Bewässerung auslesen + String für Kommunikation erstellen
       time_to_water = input$input_manuell_length_watering
-      #communication_watering = paste("on_1",time_to_water)
       print("Kommunkation gestartet")
-      #print(communication_watering)
-      #Senden des Befehls an Arduino
-      #write.serialConnection(con, communication_watering)
-      #print(time_to_water)
       time_to_water = as.numeric(time_to_water)
       write.serialConnection(con, time_to_water)
-     # time_to_water = time_to_water*60 #calculate the time in seconds for the sys.sleep command
-      #Sys.sleep(time_to_water)
-      #write.serialConnection(con, "off1")
-      
-        
+
     })
     
     
@@ -283,17 +257,9 @@ shinyServer(function(input, output, session) {
       
       #Einstellungen der Dauer der Bewässerung auslesen + String für Kommunikation erstellen
       time_to_water = input$input_manuell_length_watering
-      #communication_watering = paste("on_1",time_to_water)
       print("Kommunkation gestartet")
-      #print(communication_watering)
-      #Senden des Befehls an Arduino
-      #write.serialConnection(con, communication_watering)
       print(time_to_water)
-     # write.serialConnection(con, "on1")
       time_to_water = time_to_water*60 #calculate the time in seconds for the sys.sleep command
-      #Sys.sleep(time_to_water)
-      #write.serialConnection(con, "off1")
-      
       
     })
     

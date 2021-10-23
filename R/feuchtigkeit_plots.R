@@ -6,11 +6,9 @@ feuchtigkeit_plot <- function (db, sqlitePath, Table, var) {
   #Auslesen der letzten 200 Werte aus der Rain_Data Tabelle der Datenbank für Plot
   db <- dbConnect(RSQLite::SQLite(), sqlitePath, synchronous) #establish connection
   
-  
-  
   t_feuchtigkeit <- tbl(db, from = Table) %>% 
     select(!!ensym(var), zeit, n) %>% 
-    arrange(n) %>% 
+    arrange(desc(n)) %>% 
     head(10000) %>% 
     collect()
   
